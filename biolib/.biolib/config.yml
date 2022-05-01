@@ -2,7 +2,7 @@ biolib_version: 2
 modules:
     main:
         image: 'local-docker://esm1b-embeddings:latest'
-        command: python3 predict.py
+        command: python3 generate_embeddings.py
         working_directory: /openprotein/
         input_files:
             - COPY / /
