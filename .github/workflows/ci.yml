@@ -5,7 +5,7 @@ on: push
 env:
     BIOLIB_LOG: debug
     BIOLIB_PROJECT_URI: Protein-Tools/ESM1b-embeddings
-    LOCAL_DOCKER_TAG: esm1b:latest
+    LOCAL_DOCKER_TAG: esm1b-embeddings:latest
 
 jobs:
     build-and-publish:
