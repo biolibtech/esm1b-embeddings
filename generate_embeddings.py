@@ -47,9 +47,6 @@ with torch.no_grad():
         torch.cuda.set_device('cuda:0')
         esm_model = esm_model.cuda()
     esm_model.eval()
-    
-    embedding_dicts = []
-    df = pd.DataFrame(columns=['Sequence', 'Embedding'])
     batch_converter = esm_alphabet.get_batch_converter()
     
     for idx, seq in enumerate(tqdm(sequences, unit='seq', desc='Generating embeddings')):
