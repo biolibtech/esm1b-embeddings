@@ -15,7 +15,10 @@ jobs:
             -   name: Checkout
                 uses: actions/checkout@v2
                 with:
-                    fetch-depth: 2
+                  lfs: true
+
+            -   name: Checkout lfs
+                run: git lfs checkout
 
             -   name: Build docker image
                 run: docker build -t $LOCAL_DOCKER_TAG .
