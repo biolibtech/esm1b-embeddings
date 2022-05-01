@@ -1,0 +1,23 @@
+biolib_version: 2
+modules:
+    main:
+        image: 'local-docker://esm1b-embeddings:latest'
+        command: python3 predict.py
+        working_directory: /openprotein/
+        input_files:
+            - COPY / /
+        output_files:
+            - COPY /embeddings.csv /
+        source_files: []
+        gpu: required
+        required_cpu_in_nano_shares: 4000000000
+        required_memory_in_bytes: 16000000000
+
+arguments:
+    -
+        default_value: sample.fasta
+        description: 'Enter one or more proteins in FASTA format (Max 10000 sequences per run):'
+        key: '--fasta'
+        key_value_separator: ' '
+        required: true
+        type: text-file
