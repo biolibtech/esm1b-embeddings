@@ -5,6 +5,7 @@ from hashlib import md5
 import os
 from tqdm import tqdm
 import numpy as np
+import zipfile
 import json
 import argparse
 import io
@@ -53,44 +54,45 @@ with torch.no_grad():
     esm_model.eval()
     batch_converter = esm_alphabet.get_batch_converter()
     
-    mapping_dict = {}
+    embedding_dict = {}
+
+    fh = open('output/embeddings.npz', 'wb')
     
-    for idx, seq in enumerate(tqdm(sequences, unit='seq', desc='Generating embeddings')):
-        
-        mapping_dict[seq] = idx
-        
-        seqs = list([("seq", s) for s in [seq]])
-        labels, strs, toks = batch_converter(seqs)
-        repr_layers_list = [
-            (i + esm_model.num_layers + 1) % (esm_model.num_layers + 1) for i in range(repr_layers)
-        ]
+    with zipfile.ZipFile(fh, mode="w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+             
+        for idx, seq in enumerate(tqdm(sequences, unit='seq', desc='Generating embeddings')):
 
-        if torch.cuda.is_available():
-            toks = toks.to(device="cuda", non_blocking=True)
+            seqs = list([("seq", s) for s in [seq]])
+            labels, strs, toks = batch_converter(seqs)
+            repr_layers_list = [
+                (i + esm_model.num_layers + 1) % (esm_model.num_layers + 1) for i in range(repr_layers)
+            ]
 
-        minibatch_max_length = toks.size(1)
+            if torch.cuda.is_available():
+                toks = toks.to(device="cuda", non_blocking=True)
 
-        tokens_list = []
-        end = 0
-        while end <= minibatch_max_length:
-            start = end
-            end = start + 1022
-            if end <= minibatch_max_length:
-                # we are not on the last one, so make this shorter
-                end = end - 300
-            tokens = esm_model(toks[:, start:end], repr_layers=repr_layers_list, return_contacts=False)[
-                "representations"][repr_layers - 1]
-            tokens_list.append(tokens)
+            minibatch_max_length = toks.size(1)
 
-        out = torch.cat(tokens_list, dim=1)
+            tokens_list = []
+            end = 0
+            while end <= minibatch_max_length:
+                start = end
+                end = start + 1022
+                if end <= minibatch_max_length:
+                    # we are not on the last one, so make this shorter
+                    end = end - 300
+                tokens = esm_model(toks[:, start:end], repr_layers=repr_layers_list, return_contacts=False)[
+                    "representations"][repr_layers - 1]
+                tokens_list.append(tokens)
 
-        # set nan to zeros
-        out[out != out] = 0.0
+            out = torch.cat(tokens_list, dim=1)
 
-        res = out.transpose(0, 1)[1:-1]
-        seq_embedding = res[:, 0].detach().cpu().numpy()
-        
-        np.savez(f'output/{idx}', fix_imports=True, allow_pickle=False, embedding=seq_embedding)
-        
-    json_file_handle = open('output/embedding_map.json', 'w')
-    json.dump(mapping_dict, json_file_handle)
+            # set nan to zeros
+            out[out != out] = 0.0
+
+            res = out.transpose(0, 1)[1:-1]  
+            seq_embedding = res[:, 0].detach().cpu().numpy()
+            with zf.open(seq + '.npy', 'w', force_zip64=True) as buf:
+                     np.lib.npyio.format.write_array(buf,
+                                                     np.asanyarray(seq_embedding),
+                                                     allow_pickle=False)
