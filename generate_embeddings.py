@@ -4,12 +4,16 @@ from esm import Alphabet, FastaBatchedDataset, ProteinBertModel, pretrained
 from hashlib import md5
 import os
 from tqdm import tqdm
+import numpy as np
+import json
 import argparse
 import io
 from Bio import SeqIO
 import pandas as pd
 import csv  
 
+
+os.mkdir('output')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--fasta')
@@ -49,7 +53,12 @@ with torch.no_grad():
     esm_model.eval()
     batch_converter = esm_alphabet.get_batch_converter()
     
+    mapping_dict = {}
+    
     for idx, seq in enumerate(tqdm(sequences, unit='seq', desc='Generating embeddings')):
+        
+        mapping_dict[seq] = idx
+        
         seqs = list([("seq", s) for s in [seq]])
         labels, strs, toks = batch_converter(seqs)
         repr_layers_list = [
@@ -79,6 +88,9 @@ with torch.no_grad():
         out[out != out] = 0.0
 
         res = out.transpose(0, 1)[1:-1]
-        seq_embedding = res[:, 0]
-        file_handle = open(md5(seq), 'w')
-        numpy.savez(file, seq_embedding, allow_pickle=True, fix_imports=True)
+        seq_embedding = res[:, 0].detach().cpu().numpy()
+        
+        np.savez(f'output/{idx}', fix_imports=True, allow_pickle=False, embedding=seq_embedding)
+        
+    json_file_handle = open('output/embedding_map.json', 'w')
+    json.dump(mapping_dict, json_file_handle)
